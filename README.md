@@ -1,2 +1,3 @@
 # grep
-grep (Globally search a Regular Expression and Print) implement by Rust.
+
+A simple grep (Globally search a Regular Expression and Print) implement by Rust.
