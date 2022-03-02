@@ -1,0 +1,6 @@
+{
+    "comments": {
+        "markdownlint-cli": "https://github.com/igorshubovych/markdownlint-cli",
+        "vscode-markdownlint": "https://github.com/DavidAnson/vscode-markdownlint"
+    }
+}
