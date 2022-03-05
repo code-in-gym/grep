@@ -30,7 +30,7 @@ impl Config {
         // env::var 返回一个 Result，
         // 它在环境变量被设置时返回包含其值的 Ok 成员，
         // 并在环境变量未被设置时返回 Err 成员。
-        let is_sensitive = env::var("IS_SENSITIVE").is_err();
+        let is_sensitive = env::var("IS_SENSITIVE").is_ok();
         Ok(Config { query, filename, is_sensitive })
     }
 }

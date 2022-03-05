@@ -17,8 +17,3 @@ fn main() {
         process::exit(1); // 表示程序出错退出
     }
 }
-
-// Usage:
-// IS_SENSITIVE=1 cargo run us poem.txt
-// or
-// cargo run us poem.txt
