@@ -1,14 +1,15 @@
-use std::{fs, error::Error};
+use std::{error::Error, fs, env};
 
 pub struct Config {
     pub query: String,
     pub filename: String,
+    pub is_sensitive: bool,
 }
 
 impl Config {
     pub fn new(args: &[String]) -> Result<Config, &'static str> {
         if args.len() < 3 {
-            return Err("not enough arguments")
+            return Err("not enough arguments");
         }
         /*
         注意 vector 的第一个值 (args[0]) 是 "target/debug/grep"，它是我们二进制文件的名称。
@@ -25,12 +26,182 @@ impl Config {
         在第一轮编写时拥有一个可以工作但有点低效的程序要比尝试过度优化代码更好一些。
         随着你对 Rust 更加熟练，将能更轻松的直奔合适的方法，不过现在调用 clone 是完全可以接受的。
         */
-        Ok(Config { query, filename })
+
+        // env::var 返回一个 Result，
+        // 它在环境变量被设置时返回包含其值的 Ok 成员，
+        // 并在环境变量未被设置时返回 Err 成员。
+        let is_sensitive = env::var("IS_SENSITIVE").is_err();
+        Ok(Config { query, filename, is_sensitive })
     }
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.filename)?;
-    println!("\nContents is: \n{}", contents);
+    println!("Result of search is:");
+    let res = if config.is_sensitive {
+        search_sensitive(&config.query, &contents)
+    } else {
+        search_insensitive(&config.query, &contents)
+    };
+    for v in res {
+        println!("{}", v)
+    }
     Ok(())
+    
+}
+
+pub fn search_sensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    let mut res = vec![];
+    for line in contents.lines() {
+        if line.contains(query) {
+            res.push(line);
+        }
+    }
+    res
+}
+
+pub fn search_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    let mut res = vec![];
+    for line in contents.lines() {
+        if line.to_lowercase().contains(&query.to_lowercase()) {
+            res.push(line);
+        }
+    }
+    res
+}
+
+#[cfg(test)]
+mod config_tests {
+    use super::*;
+
+    #[test]
+    fn test_4_new_config_1() -> Result<(), String> {
+        let mut args: Vec<String> = vec!["".to_string()];
+        args.push("query".to_string());
+        args.push("filename".to_string());
+        let config = Config::new(&args)?;
+        assert_eq!(&config.query, &args[1]);
+        assert_eq!(&config.filename, &args[2]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_4_new_config_2() -> Result<(), String> {
+        let mut args: Vec<String> = vec!["".to_string()];
+        args.push("query".to_string());
+        args.push("filename".to_string());
+        args.push("xxx".to_string());
+        let config = Config::new(&args)?;
+        assert_eq!(&config.query, &args[1]);
+        assert_eq!(&config.filename, &args[2]);
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_4_new_config_err() {
+        let mut args: Vec<String> = vec!["".to_string()];
+        args.push("query".to_string());
+        let _res = Config::new(&args);
+        let _config = match _res {
+            Ok(config) => config,
+            Err(err_str) => {
+                panic!("{}", err_str)
+            }
+        };
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_4_new_config_err_2() {
+        let args: Vec<String> = vec!["".to_string()];
+        let _res = Config::new(&args);
+        let _config = match _res {
+            Ok(config) => config,
+            Err(err_str) => {
+                panic!("{}", err_str)
+            }
+        };
+    }
+}
+
+#[cfg(test)]
+mod run_tests {
+    use super::*;
+
+    #[test]
+    fn test_run() -> Result<(), String> {
+        let mut args: Vec<String> = vec!["".to_string()];
+        args.push("query".to_string());
+        args.push("poem.txt".to_string());
+        let config = Config::new(&args)?;
+
+        if let Err(e) = run(config) {
+            assert_eq!("".to_string(), e.to_string())
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_run_err() -> Result<(), String> {
+        let mut args: Vec<String> = vec!["".to_string()];
+        args.push("query".to_string());
+        args.push("poemNotFound.txt".to_string());
+        let config = Config::new(&args)?;
+
+        if let Err(e) = run(config) {
+            assert_ne!("".to_string(), e.to_string())
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod search_test {
+    use super::*;
+
+    #[test]
+    fn test_search_case_sensitive() {
+        let query = "us";
+        let contents = "\
+        I'm nobody! Who are you?
+        Are you nobody, too?
+        Then there's a pair of us - don't tell!
+        They'd banish us, you know.
+
+        How dreary to be somebody!
+        How public, like a frog
+        To tell your name the livelong day
+        To an admiring bog!";
+        assert_eq!(
+            vec![
+                "        Then there's a pair of us - don't tell!",
+                "        They'd banish us, you know.",
+            ],
+            search_sensitive(query, contents)
+        )
+    }
+
+    #[test]
+    fn test_search_case_insensitive() {
+        let query = "us";
+        let contents = "US
+        I'm nobody! Who are you?
+        Are you nobody, too?
+        Then there's a pair of us - don't tell!
+        They'd banish us, you know.
+
+        How dreary to be somebody!
+        How public, like a frog
+        To tell your name the livelong day
+        To an admiring bog!";
+        assert_eq!(
+            vec![
+                "US",
+                "        Then there's a pair of us - don't tell!",
+                "        They'd banish us, you know.",
+            ],
+            search_insensitive(query, contents)
+        )
+    }
 }
